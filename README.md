@@ -1,4 +1,14 @@
 
+安装python库
+
+pip install binance-futures-connector
+
+pip install websocket-client
+
+pip install pandas
+
+pip install openai
+
 #需要修改部分
 
 
