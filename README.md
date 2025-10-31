@@ -49,4 +49,26 @@ interval = '5m'
 day =1 
 
 #df保留多少根k线喂给ds
-max_rows = 100                                     
+max_rows = 100   
+
+运行
+
+前台运行（客户端关闭会退出）
+
+python ai_ban.py
+
+后台运行(推荐)
+
+nohup python -u ai_ban.py > ai_ban.log 2>&1 &
+
+查看PID
+
+ps -ef|grep py
+
+关闭后台程序
+
+kill PID
+
+查看日志
+
+tail -f ai_ban.log
