@@ -567,24 +567,42 @@ def close_trade():
     while True:
         is_get_new_price.wait()
 
-        if positionAmt > 0:  
-            logging.info(f'最新价格{new_price},止盈价格{take_profit},止损价格{stop_loss},开仓方向：BUY')      
-            #止盈止损
-            if new_price > take_profit or new_price <=stop_loss :
-                
+        if positionAmt == 0:
+            is_get_new_price.clear()
+            continue
+
+        elif positionAmt > 0:  
+            logging.info(f'最新价格{new_price},开仓价格{entry_price},止盈价格{take_profit},止损价格{stop_loss},总盈利{total_profit:.4f}usdt,开仓方向：BUY')
+            is_get_new_price.clear()      
+            #止盈
+            if new_price > take_profit: 
                 order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
+
                 if order_id != None:
-                    logging.info(f'{symbol}止盈止损成功')
+                    logging.info(f'{symbol}止盈成功')
+            #止损
+            elif new_price <=stop_loss :
+                order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
+
+                if order_id != None:
+                    logging.info(f'{symbol}止损成功')
         
         elif positionAmt < 0:
-            logging.info(f'最新价格{new_price},止盈价格{take_profit},止损价格{stop_loss},开仓方向：SELL') 
-            #止盈止损
-            if new_price < take_profit or new_price >=stop_loss :
+            logging.info(f'最新价格{new_price},开仓价格{entry_price},止盈价格{take_profit},止损价格{stop_loss},总盈利{total_profit:.4f}usdt,开仓方向：SELL') 
+            is_get_new_price.clear()
+            #止盈
+            if new_price < take_profit:
                 order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
+
                 if order_id != None:
-                    logging.info(f'{symbol}止盈止损成功')
-        
-        is_get_new_price.clear()
+                    logging.info(f'{symbol}止盈成功')
+            #止盈
+            elif new_price >=stop_loss:
+                order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
+
+                if order_id != None:
+                    logging.info(f'{symbol}止损成功')
+
 
 if __name__ == "__main__":
     
@@ -641,3 +659,4 @@ if __name__ == "__main__":
             client.renew_listen_key(user.listenKey)
     except KeyboardInterrupt:
         logging.info("主线程检测到退出信号，程序终止")
+
