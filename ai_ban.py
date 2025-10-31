@@ -579,12 +579,14 @@ def close_trade():
                 order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
 
                 if order_id != None:
+                    positionAmt = 0
                     logging.info(f'{symbol}止盈成功')
             #止损
             elif new_price <=stop_loss :
                 order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
 
                 if order_id != None:
+                    positionAmt = 0
                     logging.info(f'{symbol}止损成功')
         
         elif positionAmt < 0:
@@ -595,12 +597,14 @@ def close_trade():
                 order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
 
                 if order_id != None:
+                    positionAmt = 0
                     logging.info(f'{symbol}止盈成功')
             #止盈
             elif new_price >=stop_loss:
                 order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
 
                 if order_id != None:
+                    positionAmt = 0
                     logging.info(f'{symbol}止损成功')
 
 
@@ -659,4 +663,5 @@ if __name__ == "__main__":
             client.renew_listen_key(user.listenKey)
     except KeyboardInterrupt:
         logging.info("主线程检测到退出信号，程序终止")
+
 
