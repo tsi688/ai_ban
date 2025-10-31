@@ -427,58 +427,62 @@ def ds():
     while True:
         is_true_kline.wait()
 
-        #保留多少行
-        if len(kline_df) > max_rows:
-            kline_df = kline_df.iloc[-max_rows:]
-        
-        prompt = f"""
-                你是一个专业的加密货币交易分析师。需要在给定的{symbol}k线数据基础上结合趋势、支撑/阻力位、成交量以及技术指标来给出具体的交易信号：
+        try:
 
-                {kline_df}
-                {positionAmt}
+            #保留多少行
+            if len(kline_df) > max_rows:
+                kline_df = kline_df.iloc[-max_rows:]
+            
+            prompt = f"""
+                    你是一个专业的加密货币交易分析师。需要在给定的{symbol}k线数据基础上结合趋势、支撑/阻力位、成交量以及技术指标来给出具体的交易信号：
+
+                    {kline_df}
+                    {positionAmt}
 
 
-                【分析要求】
-                1.K线趋势：通过裸K（即K线的开盘、收盘、最高和最低价）分析当前的价格走势。通过观察价格的高低点、K线形态（如吞没、锤头等）来判断趋势。
-                2.支撑/阻力：根据历史的价格区间来找到潜在的支撑位和阻力位，这些是价格可能反转的关键区域。
-                3.成交量：成交量放大通常意味着市场参与者的活跃度增加，且有可能支持价格突破或反转。
-                4.根据这些分析，结合当前持仓，没有持仓positionAmt=0，持有多仓positionAmt>0,持有空仓positionAmt<0,给出交易信号：BUY (买入) / SELL (卖出) / HOLD (观望)/ CLOSE (平仓)。
-                5. 基于技术分析建议合理的止损价位stop_loss
-                6. 基于技术分析建议合理的止盈价位take_profit
-                7. 评估信号信心程度
+                    【分析要求】
+                    1.K线趋势：通过裸K（即K线的开盘、收盘、最高和最低价）分析当前的价格走势。通过观察价格的高低点、K线形态（如吞没、锤头等）来判断趋势。
+                    2.支撑/阻力：根据历史的价格区间来找到潜在的支撑位和阻力位，这些是价格可能反转的关键区域。
+                    3.成交量：成交量放大通常意味着市场参与者的活跃度增加，且有可能支持价格突破或反转。
+                    4.根据这些分析，结合当前持仓，没有持仓positionAmt=0，持有多仓positionAmt>0,持有空仓positionAmt<0,给出交易信号：BUY (买入) / SELL (卖出) / HOLD (观望)/ CLOSE (平仓)。
+                    5. 基于技术分析建议合理的止损价位stop_loss
+                    6. 基于技术分析建议合理的止盈价位take_profit
+                    7. 评估信号信心程度
 
-                请用以下JSON格式回复：
-                {{
-                    "signal": "BUY|SELL|HOLD|CLOSE",
-                    "stop_loss": 具体价格,
-                    "take_profit": 具体价格,
-                    "confidence": "high|medium|low",
-                    "reason": "分析理由",
-                }}
-                """
+                    请用以下JSON格式回复：
+                    {{
+                        "signal": "BUY|SELL|HOLD|CLOSE",
+                        "stop_loss": 具体价格,
+                        "take_profit": 具体价格,
+                        "confidence": "high|medium|low",
+                        "reason": "分析理由",
+                    }}
+                    """
 
-        response = deepseek_client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system",
-                "content": f"您是一位急需资金为母亲治疗癌症的交易员，你现在需要从加密货币交易市场赚取足够的金额治疗你的母亲，"},
-                {"role": "user", "content": prompt}
-            ],
-            stream=False
-        )
-        #解析json
-        result = response.choices[0].message.content
-        start_idx = result.find('{')
-        end_idx = result.rfind('}') + 1
-        if start_idx != -1 and end_idx != 0:
-            json_str = result[start_idx:end_idx]
-            signal_data = json.loads(json_str)
-        else:
-            logging.info(f"无法解析JSON: {result}")
-            return None
-        logging.info(signal_data)
-        is_ai_finish.set()
-        is_true_kline.clear()
+            response = deepseek_client.chat.completions.create(
+                model="deepseek-chat",
+                messages=[
+                    {"role": "system",
+                    "content": f"您是一位急需资金为母亲治疗癌症的交易员，你现在需要从加密货币交易市场赚取足够的金额治疗你的母亲，"},
+                    {"role": "user", "content": prompt}
+                ],
+                stream=False
+            )
+            #解析json
+            result = response.choices[0].message.content
+            start_idx = result.find('{')
+            end_idx = result.rfind('}') + 1
+            if start_idx != -1 and end_idx != 0:
+                json_str = result[start_idx:end_idx]
+                signal_data = json.loads(json_str)
+            else:
+                logging.info(f"无法解析JSON: {result}")
+                return None
+            logging.info(signal_data)
+            is_ai_finish.set()
+            
+        finally:
+            is_true_kline.clear()
 
 #根据信号是否执行开仓
 def open_trade():
@@ -486,17 +490,40 @@ def open_trade():
     while True:
         is_ai_finish.wait()
 
-        #信号BUY,SELL,HOLD,CLOSE
-        signal = signal_data['signal']      
-        #开仓信心high,low,medium
-        confidence = signal_data['confidence']
-        
-        #当前没有持仓
-        if positionAmt == 0:
-            #开仓信心高
-            if confidence != 'low':
-                if signal == 'BUY' or signal == 'SELL':
-                    order_id = market_orders(symbol=symbol,quantity=(start_usdt/new_price),side=signal)
+        try:
+
+            #信号BUY,SELL,HOLD,CLOSE
+            signal = signal_data['signal']      
+            #开仓信心high,low,medium
+            confidence = signal_data['confidence']
+            
+            #当前没有持仓
+            if positionAmt == 0:
+                #开仓信心高
+                if confidence != 'low':
+                    if signal == 'BUY' or signal == 'SELL':
+                        order_id = market_orders(symbol=symbol,quantity=(start_usdt/new_price),side=signal)
+                        if order_id != None:
+                            logging.info(f'{symbol}下单{signal}成功')
+                            #更新止盈止损
+                            #止损价格
+                            stop_loss = float(signal_data['stop_loss'])
+                            #止盈价格
+                            take_profit = float(signal_data['take_profit'])
+            
+            #持有多仓
+            elif positionAmt > 0:
+                #不操作
+                if signal == 'BUY' or signal == 'HOLD' :
+                    #更新止盈止损
+                    #止损价格
+                    stop_loss = float(signal_data['stop_loss'])
+                    #止盈价格
+                    take_profit = float(signal_data['take_profit'])
+                
+                elif signal == 'SELL':
+                    #反向做空
+                    order_id = market_orders(symbol=symbol,quantity=positionAmt*2,side=signal)
                     if order_id != None:
                         logging.info(f'{symbol}下单{signal}成功')
                         #更新止盈止损
@@ -504,62 +531,42 @@ def open_trade():
                         stop_loss = float(signal_data['stop_loss'])
                         #止盈价格
                         take_profit = float(signal_data['take_profit'])
-        
-        #持有多仓
-        elif positionAmt > 0:
-            #不操作
-            if signal == 'BUY' or signal == 'HOLD' :
-                #更新止盈止损
-                #止损价格
-                stop_loss = float(signal_data['stop_loss'])
-                #止盈价格
-                take_profit = float(signal_data['take_profit'])
+                
+                elif signal == 'CLOSE' :
+                    #平仓
+                    order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
+                    if order_id != None:
+                        logging.info(f'{symbol}平仓成功')
             
-            elif signal == 'SELL':
-                #反向做空
-                order_id = market_orders(symbol=symbol,quantity=positionAmt*2,side=signal)
-                if order_id != None:
-                    logging.info(f'{symbol}下单{signal}成功')
+            #持有空仓
+            elif positionAmt < 0:
+                #不操作
+                if signal == 'SELL' or signal == 'HOLD':
                     #更新止盈止损
                     #止损价格
                     stop_loss = float(signal_data['stop_loss'])
                     #止盈价格
                     take_profit = float(signal_data['take_profit'])
-            
-            elif signal == 'CLOSE' :
-                #平仓
-                order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
-                if order_id != None:
-                    logging.info(f'{symbol}平仓成功')
-        
-        #持有空仓
-        elif positionAmt < 0:
-            #不操作
-            if signal == 'SELL' or signal == 'HOLD':
-                #更新止盈止损
-                #止损价格
-                stop_loss = float(signal_data['stop_loss'])
-                #止盈价格
-                take_profit = float(signal_data['take_profit'])
 
-            elif signal == 'BUY':
-                #反向做多
-                order_id = market_orders(symbol=symbol,quantity=abs(positionAmt*2),side=signal)
-                if order_id != None:
-                    logging.info(f'{symbol}下单{signal}成功')
-                    #更新止盈止损
-                    #止损价格
-                    stop_loss = float(signal_data['stop_loss'])
-                    #止盈价格
-                    take_profit = float(signal_data['take_profit'])
-            
-            elif signal == 'CLOSE' :
-                #平仓
-                order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
-                if order_id != None:
-                    logging.info(f'{symbol}平仓成功')
+                elif signal == 'BUY':
+                    #反向做多
+                    order_id = market_orders(symbol=symbol,quantity=abs(positionAmt*2),side=signal)
+                    if order_id != None:
+                        logging.info(f'{symbol}下单{signal}成功')
+                        #更新止盈止损
+                        #止损价格
+                        stop_loss = float(signal_data['stop_loss'])
+                        #止盈价格
+                        take_profit = float(signal_data['take_profit'])
+                
+                elif signal == 'CLOSE' :
+                    #平仓
+                    order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
+                    if order_id != None:
+                        logging.info(f'{symbol}平仓成功')
 
-        is_ai_finish.clear()
+        finally:
+            is_ai_finish.clear()
 
 #止盈止损
 def close_trade():
@@ -567,46 +574,26 @@ def close_trade():
     while True:
         is_get_new_price.wait()
 
-        if positionAmt == 0:
-            is_get_new_price.clear()
-            continue
-
-        elif positionAmt > 0:  
-            logging.info(f'最新价格{new_price},开仓价格{entry_price},止盈价格{take_profit},止损价格{stop_loss},总盈利{total_profit:.4f}usdt,开仓方向：BUY')
-            is_get_new_price.clear()      
-            #止盈
-            if new_price > take_profit: 
-                order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
-
-                if order_id != None:
-                    positionAmt = 0
-                    logging.info(f'{symbol}止盈成功')
-            #止损
-            elif new_price <=stop_loss :
-                order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
-
-                if order_id != None:
-                    positionAmt = 0
-                    logging.info(f'{symbol}止损成功')
+        try:
+            if positionAmt > 0:  
+                logging.info(f'最新价格{new_price},止盈价格{take_profit},止损价格{stop_loss},开仓方向：BUY')      
+                #止盈止损
+                if new_price > take_profit or new_price <=stop_loss :
+                    
+                    order_id = market_orders(symbol=symbol,quantity=positionAmt,side='SELL')
+                    if order_id != None:
+                        logging.info(f'{symbol}止盈止损成功')
+            
+            elif positionAmt < 0:
+                logging.info(f'最新价格{new_price},止盈价格{take_profit},止损价格{stop_loss},开仓方向：SELL') 
+                #止盈止损
+                if new_price < take_profit or new_price >=stop_loss :
+                    order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
+                    if order_id != None:
+                        logging.info(f'{symbol}止盈止损成功')
         
-        elif positionAmt < 0:
-            logging.info(f'最新价格{new_price},开仓价格{entry_price},止盈价格{take_profit},止损价格{stop_loss},总盈利{total_profit:.4f}usdt,开仓方向：SELL') 
+        finally:
             is_get_new_price.clear()
-            #止盈
-            if new_price < take_profit:
-                order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
-
-                if order_id != None:
-                    positionAmt = 0
-                    logging.info(f'{symbol}止盈成功')
-            #止盈
-            elif new_price >=stop_loss:
-                order_id = market_orders(symbol=symbol,quantity=abs(positionAmt),side='BUY')
-
-                if order_id != None:
-                    positionAmt = 0
-                    logging.info(f'{symbol}止损成功')
-
 
 if __name__ == "__main__":
     
@@ -663,5 +650,3 @@ if __name__ == "__main__":
             client.renew_listen_key(user.listenKey)
     except KeyboardInterrupt:
         logging.info("主线程检测到退出信号，程序终止")
-
-
