@@ -61,6 +61,10 @@ python ai_ban.py
 
 nohup python -u ai_ban.py > ai_ban.log 2>&1 &
 
+查看日志
+
+tail -f ai_ban.log
+
 查看PID
 
 ps -ef|grep py
@@ -69,6 +73,4 @@ ps -ef|grep py
 
 kill PID
 
-查看日志
 
-tail -f ai_ban.log
