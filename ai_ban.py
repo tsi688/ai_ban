@@ -5,28 +5,7 @@ from logging.handlers import QueueHandler, QueueListener, RotatingFileHandler
 import queue,os
 from openai import OpenAI
 
-# ================= 异步日志系统 =================
-# === 动态日志文件名 ===
-log_filename = os.path.splitext(os.path.basename(__file__))[0] + ".log"
-
-log_queue = queue.Queue(-1)
-file_handler = RotatingFileHandler(
-    log_filename, maxBytes=10*1024*1024, backupCount=3, encoding="utf-8"
-)
-queue_handler = QueueHandler(log_queue)
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[queue_handler]
-)
-
-listener = QueueListener(log_queue, file_handler)
-listener.start()
-
-# 控制台也输出日志
-console = logging.StreamHandler()
-logging.getLogger().addHandler(console)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 # 设置显示最大列宽、行数、列数
@@ -650,3 +629,4 @@ if __name__ == "__main__":
             client.renew_listen_key(user.listenKey)
     except KeyboardInterrupt:
         logging.info("主线程检测到退出信号，程序终止")
+
