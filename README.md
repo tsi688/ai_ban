@@ -59,7 +59,7 @@ python ai_ban.py
 
 后台运行(推荐)
 
-nohup python -u ai_ban.py > ai_ban.log 2>&1 &
+nohup python -u ai_ban.py &
 
 查看日志
 
